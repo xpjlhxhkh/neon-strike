@@ -11,18 +11,21 @@ CC-BY-4.0 要求：**署名作者 + 标明许可 + 注明是否修改**。本项
 模型经本项目的工具做了**格式转换与视觉调整**（转为 .glb、统一尺寸、按材质做静态合并、
 开启 flatShading 平涂着色），属于"修改"，故在此一并声明。
 
-| 文件 | 原作名 | 作者 | 许可 |
-|---|---|---|---|
-| map-stylized_little_japanese_town_street.glb | Stylized Little Japanese Town Street | Michał Solarek (@misiek13) | CC-BY-4.0 |
-| map-japanese_temple.glb | Japanese Temple | Jainesh Pathak (@spectraut2) | CC-BY-4.0 |
-| map-japanese_torii_gate_game_asset.glb | Japanese Torii gate Game Asset | Bazylonator | CC-BY-4.0 |
-| map-japanese_traffic_assets.glb | Japanese Traffic Assets | Erik Kinč (@erikkinc) | CC-BY-4.0 |
-| map-anime_stylized_room_free.glb | Anime stylized room free | CG Lads (@CGlads) | CC-BY-4.0 |
-| map-shoji_screen.glb | Shoji Screen | Geraldo Pratama Wahyu Teddy (@juyo) | CC-BY-4.0 |
-| map-grey_japanease_apartment.glb | Grey Japanease Apartment | Kasuga𓅂 (@kasuga) | CC-BY-4.0 |
-| map-sakura_tree_01_-_low_poly_model.glb | Sakura Tree 01 - Low Poly Model | Jogoss (@thejogoss9) | CC-BY-4.0 |
+| 文件 | 原作名 | 作者 | 许可 | 出处（原作页面） |
+|---|---|---|---|---|
+| map-stylized_little_japanese_town_street.glb | Stylized Little Japanese Town Street | Michał Solarek (@misiek13) | CC-BY-4.0 | https://sketchfab.com/3d-models/stylized-little-japanese-town-street-200fc33b8a2b4da98e71590feeb255a8 |
+| map-japanese_temple.glb | Japanese Temple | Jainesh Pathak (@spectraut2) | CC-BY-4.0 | https://sketchfab.com/3d-models/japanese-temple-a210febbec4f454dbd0df1d142be06bc |
+| map-japanese_torii_gate_game_asset.glb | Japanese Torii gate Game Asset | Bazylonator (@Bazylonator) | CC-BY-4.0 | https://sketchfab.com/3d-models/japanese-torii-gate-game-asset-e12d2fa1b2b94928b8b87cb7787e2462 |
+| map-japanese_traffic_assets.glb | Japanese Traffic Assets | Erik Kinč (@erikkinc) | CC-BY-4.0 | https://sketchfab.com/3d-models/japanese-traffic-assets-1a4833770ace4df6aecfdabb76e36d60 |
+| map-anime_stylized_room_free.glb | Anime stylized room free | CG Lads (@CGlads) | CC-BY-4.0 | https://sketchfab.com/3d-models/anime-stylized-room-free-223df82515de41e684720e2eaa02e93d |
+| map-shoji_screen.glb | Shoji Screen | Geraldo Pratama Wahyu Teddy (@juyo) | CC-BY-4.0 | https://sketchfab.com/3d-models/shoji-screen-d3dec406af444af7b5025134005a9696 |
+| map-grey_japanease_apartment.glb | Grey Japanease Apartment | Kasuga𓅂 (@kasuga) | CC-BY-4.0 | https://sketchfab.com/3d-models/grey-japanease-apartment-8589efeb25284d709934497e02a25421 |
+| map-sakura_tree_01_-_low_poly_model.glb | Sakura Tree 01 - Low Poly Model | Jogoss (@thejogoss9) | CC-BY-4.0 | https://sketchfab.com/3d-models/sakura-tree-01-low-poly-model-147ae7d0d332456a99ec6195e9b0cd4f |
 
 许可全文：https://creativecommons.org/licenses/by/4.0/
+
+> 上述"原作名 / 作者 / 许可 / 出处"四项均取自模型文件**内嵌的 `asset.extras` 元数据**
+> （Sketchfab 官方 glTF 导出器写入），可用开发版的 `node tools/glb-info.mjs` 复核，非人工转述。
 
 > 注：`map-japanese_torii_gate_game_asset.glb` 目前在玩家版与开发版里都**没有被加载**
 > （不在 `world.js` 的 `MODEL_MAP` 中），保留在源码目录里仅作为可选素材。若将来不使用，
