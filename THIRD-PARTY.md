@@ -60,3 +60,23 @@ CC-BY-4.0 要求：**署名作者 + 标明许可 + 注明是否修改**。本项
 ──────────────────────────────────────────────────────────────
 - 全部贴图（`web/textures/`）由本项目的 canvas 程序化生成或作者自备，不含第三方素材。
 - 音效（`web/src/audio.js`）由 WebAudio 程序化合成，不含第三方音频素材。
+
+──────────────────────────────────────────────────────────────
+5. 许可范围说明（原在 LICENSE 末尾，为了让 GitHub 正确识别 MIT 而挪到这里）
+──────────────────────────────────────────────────────────────
+`LICENSE` 里的 MIT 许可**只覆盖本项目自己的代码与美术**，上面这些第三方素材**不适用 MIT**：
+
+| 内容 | 许可 | 是否要求署名 |
+|---|---|---|
+| 8 个地图模型 | CC-BY-4.0 | **是**（必须署名作者，见第 1 节） |
+| 武器模型 `qbz191.glb` | 见第 2 节（再分发授权待确认） | 待确认 |
+| three.js / GLTFLoader | MIT | 保留版权声明 |
+| Tauri | MIT / Apache-2.0 | 保留版权声明 |
+| WebView2Loader.dll | Microsoft 许可 | 随 WebView2 运行时 |
+
+也就是说：**你可以按 MIT 使用、修改、再分发本项目的代码与美术；但再分发时，
+第 1 节那 8 个模型仍必须按 CC-BY-4.0 给作者署名**，上面这些库的版权声明也要保留。
+
+The MIT license in `LICENSE` covers only this project's own code and art.
+Third-party models and libraries keep their own licenses (see sections 1–4 above);
+the 8 map models are CC-BY-4.0 and **require attribution** when redistributed.
