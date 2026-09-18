@@ -1,0 +1,50 @@
+# =====================================================================
+#  NEON STRIKE / 霓虹突袭 —— 不该进版本库的东西
+#  换行符务必保持 LF（本文件由编辑器工具写入）
+# =====================================================================
+
+# --- Rust / Tauri 编译产物（本机实测 1.3 GB，绝对不能进仓库）---
+src-tauri/target/
+target/
+**/*.rs.bk
+*.pdb
+*.rlib
+*.rmeta
+
+# --- 玩家运行时生成的存档（每台机器不同，不该提交）---
+saves/
+*.localstorage
+
+# --- 开发版才有的备份与临时文件 ---
+*.bak
+*.tmp-apply
+*.corrupt.bak
+*.pre-*.bak
+*.tmp
+
+# --- 自动化工具运行时产生的目录 / 日志 ---
+.browser-profile/
+tools/.browser.log
+tools/shots/
+.neon-boot.log
+*.log
+
+# --- 打包产物：exe 走 GitHub Release 附件，不进 git ---
+#      （94 MB 的二进制每次换版本都会把仓库撑大；Release 附件更适合放它）
+NEON STRIKE.exe
+霓虹突袭.exe
+WebView2Loader.dll
+*.exe
+*.dll
+
+# --- 模型处理工具的中间产物 ---
+.toolchain/
+*.3mf
+.tmp/
+
+# --- 编辑器 / 系统杂项 ---
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store

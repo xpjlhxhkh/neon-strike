@@ -1,0 +1,25 @@
+NEON STRIKE / 霓虹突袭  v0.50  —  发布文件校验值
+==================================================
+用法：下载后核对，确认文件没坏、也没被人改过。
+
+Windows PowerShell（在本目录下执行）:
+    Get-FileHash "NEON STRIKE.exe" -Algorithm SHA256 | Format-List
+    Get-FileHash "WebView2Loader.dll" -Algorithm SHA256 | Format-List
+
+或对比下面这段（大小写不敏感，去掉空格后逐字符比对即可）。
+
+──────────────────────────────────────────────────
+SHA256  EB0FEE14BE8D0DD5ED2C0D4249DBE6DBB3351155E9F6979DAFB76E2D5865E141
+文件    NEON STRIKE.exe
+大小    94.32 MB (98,900,992 字节)
+
+SHA256  8427B1FC58EC707813E5C0A51EB5D69397BB333250A7B891BE4D3B123F1E0F1C
+文件    WebView2Loader.dll
+大小    0.15 MB (155,648 字节)
+──────────────────────────────────────────────────
+
+说明：
+· 这两个文件是 GitHub Release 的附件，**不在 git 仓库里**（仓库只放源码与素材）。
+· 校验值对应的构建：Tauri 2 + Rust GNU 目标，PE 子系统已补为 GUI(2)，
+  前端资源取自本仓库同一提交的 `web/`。
+· 想自己编译出同样的东西：见 README 的「自己编译」一节。

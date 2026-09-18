@@ -1,0 +1,20 @@
+# Tauri 工程专用 cargo 配置（只影响 src-tauri 目录下的构建）
+#
+# · 依赖走 USTC 镜像（官方 crates.io 在本机只有 ~38 KB/s）
+# · Windows 用 GNU 目标 + Rust 自带的 rust-lld 自包含链接：
+#   不需要安装 MinGW，也不需要 3 GB 的 Visual Studio Build Tools。
+#
+# 关于"双击秒退"：rust-lld 在 --subsystem,windows 时选的入口点与 rust-mingw
+# 的 CRT 不匹配，进程会在 main 之前被加载器结束。因此这里按 console 子系统
+# 链接（入口点 mainCRTStartup 正确），再由 tools/build-tauri.ps1 把 PE 头里的
+# 子系统字段改成 GUI(2) —— 结果是一个没有控制台窗口的正常桌面程序。
+
+[source.crates-io]
+replace-with = "ustc"
+
+[source.ustc]
+registry = "sparse+https://mirrors.ustc.edu.cn/crates.io-index/"
+
+[target.x86_64-pc-windows-gnu]
+linker = "rust-lld"
+rustflags = ["-Clink-self-contained=yes"]

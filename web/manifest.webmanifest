@@ -1,0 +1,16 @@
+{
+  "name": "霓虹突袭",
+  "short_name": "霓虹突袭",
+  "description": "3D 第一人称射击 · 共 8 关",
+  "lang": "zh-CN",
+  "start_url": "index.html",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#05080e",
+  "theme_color": "#05080e",
+  "icons": [
+    { "src": "icon-256.png", "sizes": "256x256", "type": "image/png", "purpose": "any" },
+    { "src": "favicon.ico", "sizes": "256x256", "type": "image/x-icon" }
+  ]
+}

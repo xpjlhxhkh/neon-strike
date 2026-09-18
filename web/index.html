@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>霓虹突袭 — 3D 第一人称射击</title>
+<!-- 游戏图标：应用窗口在任务栏/标题栏显示的图标就取自这里 -->
+<link rel="icon" href="favicon.ico" sizes="any" />
+<link rel="icon" type="image/png" href="icon-256.png" sizes="256x256" />
+<link rel="apple-touch-icon" href="icon-256.png" />
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#05080e" />
+<script>
+/* 自检模式：仅在 URL 带 ?selftest=1 时收集运行时错误（正常运行零开销） */
+if (location.search.indexOf('selftest') !== -1) {
+  window.__ERRORS = [];
+  window.addEventListener('error', function (e) { window.__ERRORS.push(String(e.message)); });
+  window.addEventListener('unhandledrejection', function (e) { window.__ERRORS.push('unhandledrejection: ' + e.reason); });
+  var __ce = console.error;
+  console.error = function () {
+    window.__ERRORS.push(Array.prototype.join.call(arguments, ' '));
+    return __ce.apply(console, arguments);
+  };
+}
+</script>
+<style>
+  :root{
+    --cyan:#38e8ff;
+    --cyan-dim:rgba(56,232,255,.35);
+    --red:#ff3b52;
+    --amber:#ffcf4d;
+    --green:#4ade80;
+    --hud-bg:rgba(6,12,20,.55);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{
+    width:100%;height:100%;overflow:hidden;background:#05080e;
+    /* 关闭横向过卷，配合 JS 一起阻止触控板滑动导致的网页后退 */
+    overscroll-behavior:none;
+    touch-action:none;
+    /* 禁止"按住左键拖动"产生原生拖拽手势 */
+    -webkit-user-drag:none;
+    user-drag:none;
+  }
+  img,canvas,a{-webkit-user-drag:none;user-drag:none;}
+  body{
+    font-family:"Segoe UI","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    color:#dff3ff;user-select:none;-webkit-user-select:none;
+    cursor:default;
+  }
+  #app{position:fixed;inset:0;}
+  #app canvas{display:block;width:100%;height:100%;}
+
+  /* ---------- HUD ---------- */
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:10;transition:opacity .35s ease;}
+  #hud.hud-off{opacity:0;}
+  .panel{
+    position:absolute;background:var(--hud-bg);
+    border:1px solid rgba(56,232,255,.22);
+    border-radius:6px;padding:10px 14px;
+    backdrop-filter:blur(3px);
+    box-shadow:0 0 22px rgba(0,0,0,.45) inset;
+  }
+  .label{
+    font-size:11px;letter-spacing:.22em;
+    color:rgba(190,230,255,.65);font-weight:600;
+  }
+  .big{font-variant-numeric:tabular-nums;font-family:Consolas,"Courier New",monospace;font-weight:700;}
+
+  /* 左上：帧率 + 关卡进度 */
+  #topLeft{position:absolute;left:22px;top:22px;display:flex;flex-direction:column;gap:10px;}
+  #fps{font-size:11px;letter-spacing:.14em;color:rgba(226,240,255,.75);
+    font-family:Consolas,monospace;align-self:flex-start;
+    padding:4px 9px;border-radius:6px;background:rgba(6,12,20,.5);
+    border:1px solid rgba(56,232,255,.16);}
+  #progressPanel{position:relative;left:0;top:0;width:250px;padding:10px 14px;}
+  #stageRow{display:flex;align-items:baseline;justify-content:space-between;margin-top:6px;}
+  #stageValue{font-size:20px;font-family:Consolas,monospace;font-weight:700;color:#eafcff;}
+  #stageTotal{font-size:12px;color:rgba(190,230,255,.55);}
+  #stageBarOuter{margin-top:8px;height:8px;border-radius:4px;overflow:hidden;
+    background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.08);}
+  #stageBar{height:100%;width:0%;border-radius:4px;
+    background:linear-gradient(90deg,#2de1ff,#8affd6);
+    box-shadow:0 0 12px rgba(56,232,255,.6);transition:width .3s ease-out;}
+  #stageSub{margin-top:7px;font-size:12px;color:rgba(190,230,255,.66);letter-spacing:.06em;}
+
+  /* ---------- 训练场菜单（左上，仅训练场显示） ---------- */
+  #trainMenu{display:none;position:relative;left:0;top:0;width:250px;padding:10px 14px;
+    pointer-events:auto;max-height:calc(100vh - 300px);overflow:auto;}
+  body[data-training="1"] #trainMenu{display:block;}
+  body[data-training="1"] #progressPanel{display:none;}
+  .tmTitle{font-size:11px;letter-spacing:.22em;color:rgba(190,230,255,.65);font-weight:600;}
+  .tmSub{margin-top:5px;font-size:11px;line-height:1.5;color:rgba(190,230,255,.62);}
+  .tmSub b{color:#8affd6;font-weight:700;}
+  .tmSect{margin-top:9px;padding-top:8px;border-top:1px solid rgba(56,232,255,.16);}
+  .tmSectTitle{font-size:11px;letter-spacing:.16em;color:rgba(190,230,255,.55);margin-bottom:6px;}
+  .tmBtn{display:block;width:100%;box-sizing:border-box;text-align:left;
+    margin:0 0 5px;padding:5px 9px;border-radius:5px;font-size:12px;cursor:pointer;
+    color:#e6f0fb;background:rgba(40,70,110,.5);border:1px solid rgba(130,190,255,.3);
+    font-family:inherit;letter-spacing:.04em;}
+  .tmBtn:hover{background:rgba(53,224,255,.2);border-color:rgba(53,224,255,.55);}
+  .tmBtn.on{background:rgba(53,224,255,.32);border-color:rgba(53,224,255,.75);color:#eaffff;font-weight:700;}
+  .tmBtn.warn{background:rgba(120,40,40,.55);border-color:rgba(255,120,120,.35);color:#ffe3e3;}
+  .tmBtn.warn:hover{background:rgba(180,60,60,.6);}
+  .tmGrid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+  .tmGrid .tmBtn{margin:0;text-align:center;padding:5px 4px;}
+  .tmGrid .tmBtn .tmNum{color:rgba(190,230,255,.5);font-size:10px;margin-left:3px;}
+
+  /* 训练场里的 Alt 提示（平时隐藏） */
+  #altHint{display:none;}
+  body[data-training="1"] #altHint{display:flex;}
+  body[data-training="1"] #pauseHint{display:none;}
+
+  /* 解锁鼠标（菜单模式）：右上角提示条 */
+  #menuNotice{position:absolute;left:50%;top:14px;transform:translateX(-50%);
+    padding:6px 16px;border-radius:6px;font-size:12px;letter-spacing:.06em;
+    color:#eafcff;background:rgba(8,16,26,.82);border:1px solid rgba(56,232,255,.35);
+    box-shadow:0 0 20px rgba(0,0,0,.5);opacity:0;transition:opacity .25s ease;pointer-events:none;}
+  #hud.menu-open #menuNotice{opacity:1;}
+  #hud.menu-open{cursor:default;pointer-events:none;}
+  #hud.menu-open #trainMenu{box-shadow:0 0 26px rgba(56,232,255,.28),0 0 22px rgba(0,0,0,.5) inset;}
+
+  /* ---------- 敌人方位条（屏幕上方一条） ---------- */
+  #compass{position:absolute;left:50%;top:44px;transform:translateX(-50%);
+    width:520px;height:16px;opacity:.92;pointer-events:none;}
+  #compass .cTrack{position:absolute;inset:0;border-radius:3px;
+    background:linear-gradient(90deg,rgba(10,18,28,0) 0%,rgba(10,18,28,.55) 12%,
+      rgba(10,18,28,.55) 88%,rgba(10,18,28,0) 100%);
+    border-top:1px solid rgba(160,200,235,.22);border-bottom:1px solid rgba(160,200,235,.22);}
+  /* 正前方刻度 */
+  #compass .cCenter{position:absolute;left:50%;top:-2px;width:1px;height:20px;
+    background:rgba(210,235,255,.5);transform:translateX(-50%);}
+  #cDots{position:absolute;inset:0;}
+  #cDots i{position:absolute;top:50%;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;
+    border-radius:50%;background:#ff4d5e;box-shadow:0 0 6px rgba(255,77,94,.9);}
+  #cDots i.hot{background:#ffd166;box-shadow:0 0 8px rgba(255,209,102,.95);}
+
+  /* 左下：按键提示 + 生命值 */
+  #bottomLeft{position:absolute;left:22px;bottom:22px;display:flex;flex-direction:column;gap:10px;width:250px;}
+  #keyHints{
+    display:flex;flex-direction:column;gap:5px;padding:10px 14px;
+    border-radius:6px;background:rgba(6,12,20,.52);
+    border:1px solid rgba(56,232,255,.16);backdrop-filter:blur(3px);
+    opacity:0;transform:translateX(-10px);pointer-events:none;
+    transition:opacity .4s ease,transform .4s ease;
+  }
+  #keyHints.show{opacity:1;transform:none;}
+  .hintRow{display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(205,235,255,.72);letter-spacing:.05em;
+    text-shadow:0 1px 4px rgba(0,0,0,.9);}
+  .hintRow .keys{display:flex;gap:4px;}
+  #healthPanel{position:relative;left:0;bottom:0;width:100%;}
+  #healthRow{display:flex;align-items:baseline;justify-content:space-between;margin-top:4px;}
+  #healthValue{font-size:30px;line-height:1;color:#eafcff;text-shadow:0 0 12px var(--cyan-dim);}
+  #healthValue.low{color:#ff8a97;text-shadow:0 0 14px rgba(255,59,82,.7);}
+  #healthMax{font-size:13px;color:rgba(190,230,255,.5);}
+  #healthBarOuter{margin-top:8px;height:9px;border-radius:5px;overflow:hidden;
+    background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.08);}
+  #healthBar{height:100%;width:100%;
+    background:linear-gradient(90deg,#00d0a0,#38e8ff);
+    box-shadow:0 0 14px rgba(56,232,255,.55);
+    transition:width .16s ease-out,background .3s linear;}
+  #healthBar.mid{background:linear-gradient(90deg,#ffb347,#ffcf4d);}
+  #healthBar.low{background:linear-gradient(90deg,#ff2d4b,#ff7a6b);}
+
+  /* 右上：得分 */
+  #scorePanel{right:22px;top:22px;min-width:190px;text-align:right;}
+  .statRow{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-top:6px;}
+  .statRow .k{font-size:12px;letter-spacing:.12em;color:rgba(190,230,255,.6);}
+  .statRow .v{font-size:19px;font-family:Consolas,monospace;font-weight:700;color:#eafcff;}
+  #scoreValue{font-size:27px;color:var(--amber);text-shadow:0 0 16px rgba(255,207,77,.45);}
+
+  /* 右下：弹药 */
+  #ammoPanel{right:22px;bottom:22px;min-width:180px;text-align:right;}
+  #ammoRow{display:flex;align-items:baseline;justify-content:flex-end;gap:6px;}
+  #ammoMag{font-size:34px;line-height:1;color:#eafcff;text-shadow:0 0 12px var(--cyan-dim);}
+  #ammoMag.empty{color:var(--red);text-shadow:0 0 14px rgba(255,59,82,.6);}
+  #ammoSep{font-size:18px;color:rgba(190,230,255,.45);}
+  #ammoReserve{font-size:18px;color:rgba(190,230,255,.7);}
+  #reloadHint{margin-top:6px;font-size:12px;letter-spacing:.1em;color:var(--amber);opacity:0;transition:opacity .15s;}
+  #reloadHint.show{opacity:1;}
+  #reloadHint.warn{color:#ff8a97;}
+  #weaponName{margin-top:6px;}
+
+  /* 准星 */
+  #crosshair{position:absolute;left:50%;top:50%;width:64px;height:64px;
+    transform:translate(-50%,-50%);--spread:8px;}
+  #crosshair .tick{
+    position:absolute;background:rgba(235,255,255,.95);
+    box-shadow:0 0 0 1px rgba(0,0,0,.55),0 0 8px rgba(0,0,0,.85);
+  }
+  #crosshair .tick.h{width:9px;height:2px;top:calc(50% - 1px);}
+  #crosshair .tick.v{width:2px;height:9px;left:calc(50% - 1px);}
+  #crosshair .tick.left {right:calc(50% + var(--spread));}
+  #crosshair .tick.right{left:calc(50% + var(--spread));}
+  #crosshair .tick.up   {bottom:calc(50% + var(--spread));}
+  #crosshair .tick.down {top:calc(50% + var(--spread));}
+  #crosshair .dot{position:absolute;left:calc(50% - 1.5px);top:calc(50% - 1.5px);
+    width:3px;height:3px;border-radius:50%;background:var(--cyan);
+    box-shadow:0 0 0 1px rgba(0,0,0,.6),0 0 9px var(--cyan);}
+  #crosshair.enemy .tick{background:var(--red);}
+  #crosshair.enemy .dot{background:var(--red);box-shadow:0 0 9px var(--red);}
+  /* 开镜（右键点击切换）：准心变成一颗红点（红点镜成像），无扩散、无外环 */
+  #crosshair.ads{--spread:0px;}
+  #crosshair.ads .tick{opacity:0;}
+  #crosshair.ads::after{display:none;}
+  #crosshair.ads .dot{
+    width:6px;height:6px;left:calc(50% - 3px);top:calc(50% - 3px);
+    background:radial-gradient(circle,#ff7b82 0%,#ff1f2e 55%,rgba(255,30,45,.28) 100%);
+    box-shadow:0 0 0 1px rgba(0,0,0,.6),0 0 7px rgba(255,45,60,.95),0 0 16px rgba(255,40,55,.5);
+  }
+  #crosshair.ads.enemy .dot{box-shadow:0 0 0 1px rgba(0,0,0,.65),0 0 9px rgba(255,60,70,1),0 0 20px rgba(255,40,55,.65);}
+  /* 举镜时的镜内视野：中间是圆形镜片，四周压黑 */
+  #scope{
+    position:absolute;inset:0;pointer-events:none;opacity:0;
+    transition:opacity .1s linear;z-index:6;
+  }
+  #scope.show{opacity:1;}
+  #scope .lens{
+    position:absolute;left:50%;top:50%;width:62vmin;height:62vmin;margin:-31vmin 0 0 -31vmin;
+    border-radius:50%;
+    border:1px solid rgba(160,220,255,.16);
+    box-shadow:inset 0 0 5vmin rgba(0,0,0,.42), inset 0 0 1.4vmin rgba(120,220,255,.22);
+  }
+  #scope .reticle{
+    position:absolute;left:50%;top:50%;width:62vmin;height:62vmin;margin:-31vmin 0 0 -31vmin;
+  }
+  #scope .zoom{
+    position:absolute;left:50%;top:calc(50% + 22vmin);transform:translateX(-50%);
+    font-family:Consolas,monospace;font-size:12px;letter-spacing:.16em;
+    color:rgba(205,240,255,.8);text-shadow:0 0 6px rgba(0,0,0,.9);
+  }
+  #scope .mask{
+    position:absolute;inset:0;
+    background:radial-gradient(circle at 50% 50%,
+      rgba(0,0,0,0) 0 30.3vmin,
+      rgba(0,0,0,.34) 30.6vmin,
+      rgba(0,0,0,.96) 31.9vmin,
+      #000 100%);
+  }
+  /* 开镜时隐藏普通准星（由分划板代替） */
+  #hud.scoped #crosshair{opacity:0;}
+  #hud.sightdot #crosshair{opacity:0;}
+
+  #hitmarker{position:absolute;left:50%;top:50%;width:44px;height:44px;
+    transform:translate(-50%,-50%) scale(.7);opacity:0;}
+  #hitmarker.show{animation:hitpop .22s ease-out;}
+  #hitmarker div{position:absolute;width:12px;height:2.5px;background:#fff;box-shadow:0 0 8px rgba(255,255,255,.9);}
+  #hitmarker .k1{top:8px;left:6px;transform:rotate(45deg);}
+  #hitmarker .k2{top:8px;right:6px;transform:rotate(-45deg);}
+  #hitmarker .k3{bottom:8px;left:6px;transform:rotate(-45deg);}
+  #hitmarker .k4{bottom:8px;right:6px;transform:rotate(45deg);}
+  #hitmarker.kill div{background:var(--red);box-shadow:0 0 10px var(--red);}
+  @keyframes hitpop{
+    0%{opacity:1;transform:translate(-50%,-50%) scale(.55);}
+    100%{opacity:0;transform:translate(-50%,-50%) scale(1.25);}
+  }
+
+  #damage{position:absolute;inset:0;opacity:0;
+    background:radial-gradient(ellipse at center,rgba(255,0,32,0) 38%,rgba(255,0,32,.62) 100%);}
+  #lowhp{position:absolute;inset:0;opacity:0;
+    background:radial-gradient(ellipse at center,rgba(255,0,40,0) 45%,rgba(255,0,40,.42) 100%);}
+  #lowhp.on{animation:pulse 1.5s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:.25;}50%{opacity:.85;}}
+
+  /* ---------- 得分飘字（屏幕中心下方） ---------- */
+  #scorePopups{
+    position:absolute;left:50%;bottom:31%;transform:translateX(-50%);
+    width:440px;text-align:center;
+  }
+  .pop{
+    display:flex;align-items:center;justify-content:center;gap:14px;
+    margin-bottom:6px;opacity:0;
+    animation:popIn .45s cubic-bezier(.2,.9,.3,1) forwards;
+  }
+  .pop.fade{animation:popOut .7s ease-out forwards;}
+  @keyframes popIn{
+    0%{opacity:0;transform:translateY(18px) scale(.82);}
+    60%{opacity:1;transform:translateY(0) scale(1.08);}
+    100%{opacity:1;transform:translateY(0) scale(1);}
+  }
+  @keyframes popOut{
+    to{opacity:0;transform:translateY(-34px) scale(1);}
+  }
+  .pop .pts{
+    font-family:Consolas,"Courier New",monospace;font-weight:800;
+    font-size:34px;line-height:1.05;color:var(--amber);
+    text-shadow:0 0 18px rgba(255,207,77,.65),0 2px 6px rgba(0,0,0,.85);
+  }
+  .pop .pts.bump{animation:ptsBump .42s cubic-bezier(.2,.9,.3,1);}
+  @keyframes ptsBump{
+    0%{transform:scale(1);}
+    38%{transform:scale(1.28);}
+    100%{transform:scale(1);}
+  }
+  /* 分数右侧的小字：得分构成 + 连杀原因（纯文字，无边框无底色） */
+  .pop .detail{
+    display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;
+  }
+  .pop .detail .line{
+    font-size:12.5px;line-height:1.35;letter-spacing:.04em;
+    color:rgba(240,248,255,.96);
+    text-shadow:0 1px 3px #000,0 1px 8px rgba(0,0,0,.95);
+    font-family:Consolas,"Microsoft YaHei",monospace;
+  }
+  .pop .detail .line:last-child{color:var(--amber);}
+  .pop.streak{
+    /* 连杀飘字不参与透明度动画：透明度由脚本跟随连杀时间条控制 */
+    animation:popInScale .4s cubic-bezier(.2,.9,.3,1) forwards;
+    transition:opacity .3s linear;
+  }
+  @keyframes popInScale{
+    0%{transform:translateY(18px) scale(.84);}
+    60%{transform:translateY(0) scale(1.06);}
+    100%{transform:translateY(0) scale(1);}
+  }
+  .pop.streak .pts{
+    color:#ff9d3c;font-size:42px;
+    text-shadow:0 0 26px rgba(255,157,60,.85),0 2px 8px rgba(0,0,0,.9);
+  }
+  .pop.streak .detail .line{color:#ffe0bd;text-shadow:0 1px 3px #000,0 1px 8px rgba(0,0,0,.95);}
+  .pop.streak .detail .line:last-child{color:#ffb347;font-weight:700;}
+  .pop.bonus .pts{color:var(--green);font-size:30px;text-shadow:0 0 18px rgba(74,222,128,.7),0 2px 6px rgba(0,0,0,.85);}
+
+  /* ---------- 连杀提示（屏幕上方中间） ---------- */
+  #streakPanel{
+    position:absolute;left:50%;top:20px;transform:translateX(-50%) translateY(-10px);
+    min-width:190px;padding:9px 18px 10px;text-align:center;opacity:0;
+    border:1px solid rgba(255,157,60,.35);border-radius:10px;
+    background:linear-gradient(180deg,rgba(38,20,8,.62),rgba(20,10,4,.62));
+    backdrop-filter:blur(6px);
+    box-shadow:0 0 26px rgba(255,157,60,.18);
+    transition:opacity .28s ease,transform .28s ease;
+  }
+  #streakPanel.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  #streakText{
+    font-size:20px;font-weight:800;letter-spacing:.14em;color:#ffb347;
+    text-shadow:0 0 18px rgba(255,157,60,.6);
+  }
+  #streakBonus{font-size:12px;letter-spacing:.14em;color:rgba(255,215,168,.85);margin-top:2px;}
+  #streakBarOuter{margin-top:7px;height:4px;border-radius:2px;overflow:hidden;background:rgba(255,255,255,.14);}
+  #streakBar{height:100%;width:100%;background:linear-gradient(90deg,#ff9d3c,#ffd76a);}
+
+  /* ---------- 回合结算卡片 ---------- */
+  #roundCard{
+    position:absolute;left:50%;top:44%;transform:translate(-50%,-50%) scale(.9);
+    width:340px;padding:20px 24px 18px;text-align:center;opacity:0;
+    border:1px solid rgba(56,232,255,.34);border-radius:12px;
+    background:linear-gradient(180deg,rgba(10,22,34,.9),rgba(6,12,22,.92));
+    box-shadow:0 0 50px rgba(56,232,255,.16),0 18px 40px rgba(0,0,0,.55);
+    transition:opacity .22s ease-out,transform .22s cubic-bezier(.2,.9,.3,1);
+  }
+  #roundCard.show{opacity:1;transform:translate(-50%,-50%) scale(1);}
+  #rcTitle{font-size:22px;font-weight:800;letter-spacing:.16em;color:#eafcff;
+    text-shadow:0 0 18px var(--cyan-dim);}
+  #rcScoreRow{margin-top:12px;}
+  #rcScoreRow .k{font-size:12px;letter-spacing:.2em;color:rgba(190,230,255,.62);}
+  #rcScoreRow .v{display:block;margin-top:2px;font-size:38px;line-height:1.05;
+    font-family:Consolas,monospace;font-weight:800;color:var(--amber);
+    text-shadow:0 0 20px rgba(255,207,77,.5);}
+  #rcRows{margin-top:14px;display:flex;flex-direction:column;gap:6px;}
+  .rcRow{display:flex;justify-content:space-between;font-size:13px;color:rgba(215,240,255,.86);}
+  .rcRow span:last-child{font-family:Consolas,monospace;font-weight:700;color:var(--green);}
+  #rcNextText{margin-top:14px;font-size:12px;letter-spacing:.16em;color:rgba(190,230,255,.7);}
+  #rcBarOuter{margin-top:8px;height:6px;border-radius:3px;overflow:hidden;background:rgba(255,255,255,.1);}
+  #rcBar{height:100%;width:0%;background:linear-gradient(90deg,#2de1ff,#8affd6);}
+
+  /* 波次横幅 */
+  #banner{position:absolute;left:50%;top:20%;transform:translate(-50%,-50%);text-align:center;opacity:0;}
+  #banner.show{animation:bannerIn 2.1s ease-out;}
+  #bannerTitle{font-size:38px;font-weight:800;letter-spacing:.16em;color:#eafcff;
+    text-shadow:0 0 26px var(--cyan-dim),0 0 4px #fff;}
+  #bannerSub{margin-top:8px;font-size:14px;letter-spacing:.24em;color:rgba(190,230,255,.75);}
+  @keyframes bannerIn{
+    0%{opacity:0;transform:translate(-50%,-50%) scale(.86);}
+    14%{opacity:1;transform:translate(-50%,-50%) scale(1);}
+    76%{opacity:1;}
+    100%{opacity:0;}
+  }
+
+  /* ---------- 覆盖层（开始/暂停/结算） ---------- */
+  #overlay{
+    position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at center,rgba(4,10,18,.72),rgba(2,5,10,.94));
+    backdrop-filter:blur(6px);
+  }
+  #overlay.hidden{display:none;}
+  .card{
+    position:relative;
+    width:min(720px,92vw);max-height:82vh;overflow:auto;overscroll-behavior:contain;
+    padding:28px 34px 24px;text-align:center;
+    border:1px solid rgba(56,232,255,.20);border-radius:14px;
+    background:linear-gradient(180deg,rgba(9,18,30,.72),rgba(5,11,20,.78));
+    backdrop-filter:blur(14px) saturate(120%);
+    box-shadow:0 0 70px rgba(56,232,255,.10),0 22px 60px rgba(0,0,0,.55);
+    animation:cardIn .3s ease-out;
+  }
+  @keyframes cardIn{from{opacity:0;transform:translateY(12px) scale(.985);}to{opacity:1;transform:none;}}
+  /* 开始页不用卡片外壳，直接浮在场景上，更沉浸 */
+  .card.bare{
+    width:auto;max-height:none;overflow:visible;padding:0;
+    background:none;border:none;box-shadow:none;backdrop-filter:none;
+  }
+  .card h1{font-size:clamp(28px,4.6vw,46px);letter-spacing:.22em;font-weight:800;
+    color:#eafcff;text-shadow:0 0 28px rgba(56,232,255,.5);}
+  .card h1 .accent{color:var(--cyan);}
+  .card h2{font-size:24px;letter-spacing:.16em;color:#eafcff;font-weight:700;}
+  .card .sub{margin-top:10px;font-size:12.5px;letter-spacing:.24em;color:rgba(190,230,255,.58);}
+
+  /* ---------- 开始页：竖排图标入口 ---------- */
+  #menuWrap{
+    display:flex;flex-direction:column;align-items:center;
+    padding:18px 10px 6px;animation:cardIn .38s ease-out;
+  }
+  .brand{text-align:center;}
+  .brand h1{
+    font-size:clamp(30px,5vw,54px);letter-spacing:.3em;font-weight:800;color:#eafcff;
+    text-shadow:0 0 34px rgba(56,232,255,.45),0 0 8px rgba(255,255,255,.25);
+  }
+  .brand h1 .accent{color:var(--cyan);}
+  /* 中文标题下面的英文小字（英文名 NEON STRIKE） */
+  .brand .en{
+    margin-top:10px;font-size:clamp(11px,1.3vw,15px);letter-spacing:.42em;font-weight:600;
+    color:rgba(150,235,255,.92);text-shadow:0 0 14px rgba(56,232,255,.45);
+    padding-left:.42em;                     /* 抵消字距造成的右侧多出空间，视觉居中 */
+  }
+  .brand .sub{margin-top:12px;font-size:12px;letter-spacing:.24em;color:rgba(190,230,255,.5);}
+  .brand .rule{
+    width:132px;height:1px;margin:22px auto 0;
+    background:linear-gradient(90deg,transparent,rgba(56,232,255,.65),transparent);
+  }
+  .iconRail{
+    display:flex;flex-direction:column;gap:12px;align-items:stretch;
+    width:214px;margin-top:26px;
+  }
+  .iconItem{
+    pointer-events:auto;cursor:pointer;
+    display:flex;align-items:center;gap:14px;
+    padding:12px 18px;border-radius:11px;
+    border:1px solid rgba(56,232,255,.16);
+    background:linear-gradient(180deg,rgba(10,22,34,.5),rgba(6,12,22,.5));
+    backdrop-filter:blur(8px);
+    color:#dff3ff;font-size:14px;letter-spacing:.18em;
+    transition:border-color .18s,background .18s,transform .12s,box-shadow .18s;
+  }
+  .iconItem .ic{width:21px;height:21px;flex:none;color:var(--cyan);
+    filter:drop-shadow(0 0 7px rgba(56,232,255,.45));}
+  .iconItem:hover{
+    border-color:rgba(56,232,255,.55);
+    background:linear-gradient(180deg,rgba(18,44,62,.62),rgba(9,22,34,.62));
+    box-shadow:0 0 28px rgba(56,232,255,.2);transform:translateY(-1px);
+  }
+  .iconItem:active{transform:scale(.985);}
+  .iconItem.primary{
+    border-color:rgba(56,232,255,.42);
+    background:linear-gradient(180deg,rgba(20,56,76,.58),rgba(9,26,40,.58));
+  }
+  /* 退出游戏：用红色描边与其它入口区分 */
+  .iconItem.danger{border-color:rgba(255,90,110,.28);}
+  .iconItem.danger .ic{color:#ff7a8c;filter:drop-shadow(0 0 7px rgba(255,90,110,.45));}
+  .iconItem.danger:hover{
+    border-color:rgba(255,90,110,.7);
+    background:linear-gradient(180deg,rgba(70,22,32,.62),rgba(34,10,16,.62));
+    box-shadow:0 0 28px rgba(255,90,110,.22);
+  }
+  .menuTip{
+    margin-top:26px;font-size:11.5px;letter-spacing:.14em;color:rgba(190,230,255,.38);
+  }
+
+  /* 卡片右上/左上角的图标按钮（设置、返回） */
+  .iconBtn{
+    pointer-events:auto;cursor:pointer;position:absolute;top:14px;right:14px;
+    width:38px;height:38px;border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    border:1px solid rgba(56,232,255,.18);background:rgba(10,22,34,.45);
+    color:#bfe8ff;transition:border-color .18s,background .18s,transform .12s,box-shadow .18s;
+  }
+  .iconBtn.left{right:auto;left:14px;}
+  .iconBtn:hover{border-color:rgba(56,232,255,.6);background:rgba(20,50,70,.6);
+    box-shadow:0 0 20px rgba(56,232,255,.22);}
+  .iconBtn:active{transform:scale(.93);}
+  .iconBtn .ic{width:19px;height:19px;}
+  .btn{
+    pointer-events:auto;cursor:pointer;display:inline-block;
+    margin:8px 6px 0;padding:13px 30px;border-radius:8px;
+    border:1px solid rgba(56,232,255,.55);background:rgba(56,232,255,.13);
+    color:#eafcff;font-size:15px;letter-spacing:.14em;font-weight:700;
+    transition:background .15s,transform .1s,box-shadow .15s;
+  }
+  .btn:hover{background:rgba(56,232,255,.26);box-shadow:0 0 26px rgba(56,232,255,.3);}
+  .btn:active{transform:scale(.97);}
+  .btn.ghost{border-color:rgba(190,230,255,.28);background:rgba(190,230,255,.06);font-weight:600;}
+  .btn.small{padding:9px 20px;font-size:13px;}
+
+  /* 教程 / 设置 */
+  .sect{margin-top:20px;text-align:left;}
+  .sectTitle{font-size:13px;letter-spacing:.22em;color:var(--cyan);margin-bottom:10px;}
+  .keyGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px 20px;}
+  .keyRow{display:flex;align-items:center;gap:10px;font-size:13.5px;color:rgba(215,240,255,.88);}
+  .keyRow .keys{display:flex;gap:4px;}
+  .keyRow .desc{color:rgba(215,240,255,.88);}
+  kbd{
+    display:inline-block;min-width:26px;padding:3px 7px;border-radius:5px;text-align:center;
+    background:rgba(56,232,255,.12);border:1px solid rgba(56,232,255,.34);
+    font-family:Consolas,monospace;font-size:12px;color:#bff2ff;
+  }
+  .bullets{margin-top:8px;display:flex;flex-direction:column;gap:7px;}
+  .bullet{font-size:13.5px;line-height:1.6;color:rgba(210,235,255,.82);}
+  .bullet b{color:var(--amber);}
+  /* 兵种图鉴 */
+  .units{display:flex;flex-direction:column;gap:6px;}
+  .unitRow{
+    display:grid;grid-template-columns:74px 82px 1fr;gap:10px;align-items:baseline;
+    padding:7px 10px;border-radius:7px;background:rgba(255,255,255,.035);
+    border:1px solid rgba(56,232,255,.10);
+  }
+  .unitWave{font-size:11.5px;letter-spacing:.06em;color:var(--amber);font-family:Consolas,monospace;}
+  .unitName{font-size:13.5px;font-weight:700;color:#eafcff;}
+  .unitDesc{font-size:12.5px;line-height:1.5;color:rgba(205,232,255,.78);}
+  .creditLine{margin-top:12px;font-size:11px;letter-spacing:.04em;color:rgba(170,205,235,.45);}
+  /* 红点镜模式：镜筒遮罩换成浅色镜窗，中心显示红点（不是倍镜分划板） */
+  #scope.reddot .lens{background:radial-gradient(circle at 50% 50%, rgba(150,200,255,.04) 0%, rgba(120,170,230,.10) 46%, rgba(6,10,16,.34) 74%, rgba(3,6,10,.95) 100%);}
+  #scope.reddot .reticle{display:none;}
+  #scope.reddot .redDot{display:block;}
+  #scope .redDot{display:none;position:absolute;left:50%;top:50%;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;
+    border-radius:50%;background:radial-gradient(circle,#ff5a63 0%,#ff1f2e 45%,rgba(255,40,50,.35) 70%,rgba(255,40,50,0) 100%);
+    box-shadow:0 0 9px rgba(255,45,60,.85),0 0 22px rgba(255,40,55,.45);}
+  #scope.reddot .ring{display:block;}
+  #scope .ring{display:none;position:absolute;left:50%;top:50%;width:44vmin;height:44vmin;margin:-22vmin 0 0 -22vmin;
+    border-radius:50%;border:1.5px solid rgba(190,225,255,.22);box-shadow:inset 0 0 3vmin rgba(0,0,0,.5);}
+  .setRow{display:flex;align-items:center;gap:14px;margin-top:14px;font-size:14px;color:rgba(215,240,255,.9);}
+  .setRow .name{width:110px;flex:none;letter-spacing:.08em;}
+  .setRow input[type=range]{
+    flex:1;height:4px;-webkit-appearance:none;appearance:none;border-radius:2px;
+    background:linear-gradient(90deg,var(--cyan),rgba(56,232,255,.25));outline:none;
+    cursor:pointer;pointer-events:auto;
+  }
+  .setRow input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+    background:#eafcff;box-shadow:0 0 10px rgba(56,232,255,.8);cursor:pointer;
+  }
+  .setRow .val{width:52px;text-align:right;font-family:Consolas,monospace;color:var(--cyan);}
+  .setHint{
+    margin-top:10px;font-size:12px;line-height:1.55;color:rgba(190,230,255,.6);
+    padding:8px 10px;border-radius:6px;background:rgba(255,255,255,.035);
+  }
+  .switch{
+    pointer-events:auto;cursor:pointer;width:52px;height:26px;border-radius:13px;flex:none;
+    background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.18);position:relative;
+    transition:background .18s;
+  }
+  .switch::after{
+    content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;
+    background:#cfe8ff;transition:transform .18s,background .18s;
+  }
+  .switch.on{background:rgba(56,232,255,.45);border-color:rgba(56,232,255,.6);}
+  .switch.on::after{transform:translateX(26px);background:#eafcff;}
+
+  .resultGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:14px;margin:24px 0 6px;}
+  .resultGrid .cell{padding:14px 8px;border-radius:8px;background:rgba(255,255,255,.045);
+    border:1px solid rgba(56,232,255,.14);}
+  .resultGrid .cell .k{font-size:11px;letter-spacing:.2em;color:rgba(190,230,255,.6);}
+  .resultGrid .cell .v{margin-top:6px;font-size:26px;font-family:Consolas,monospace;
+    font-weight:700;color:var(--cyan);}
+  .resultGrid .cell.gold .v{color:var(--amber);}
+  .tip{margin-top:18px;font-size:12px;color:rgba(190,230,255,.42);letter-spacing:.06em;}
+  #overlay .warn{color:#ff8a97;}
+  #overlay .win{color:#8affd6;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="hud">
+  <div id="crosshair">
+    <div class="tick h left"></div><div class="tick h right"></div>
+    <div class="tick v up"></div><div class="tick v down"></div>
+    <div class="dot"></div>
+  </div>
+  <!-- 举镜时的镜内视野：圆形镜片 + 密位分划板（贴在镜片上） -->
+  <div id="scope">
+    <div class="lens"></div>
+    <div class="ring"></div>
+    <div class="redDot"></div>
+    <svg class="reticle" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <g stroke="rgba(8,12,18,0.9)" stroke-width="0.9" fill="none" stroke-linecap="butt">
+        <line x1="100" y1="6" x2="100" y2="74"/>
+        <line x1="100" y1="126" x2="100" y2="194"/>
+        <line x1="6" y1="100" x2="74" y2="100"/>
+        <line x1="126" y1="100" x2="194" y2="100"/>
+        <line x1="100" y1="40" x2="107" y2="40"/><line x1="93" y1="40" x2="100" y2="40"/>
+        <line x1="100" y1="60" x2="105" y2="60"/><line x1="95" y1="60" x2="100" y2="60"/>
+        <line x1="100" y1="140" x2="105" y2="140"/><line x1="95" y1="140" x2="100" y2="140"/>
+        <line x1="100" y1="160" x2="107" y2="160"/><line x1="93" y1="160" x2="100" y2="160"/>
+        <line x1="40" y1="100" x2="40" y2="107"/><line x1="40" y1="93" x2="40" y2="100"/>
+        <line x1="60" y1="100" x2="60" y2="105"/><line x1="60" y1="95" x2="60" y2="100"/>
+        <line x1="140" y1="100" x2="140" y2="105"/><line x1="140" y1="95" x2="140" y2="100"/>
+        <line x1="160" y1="100" x2="160" y2="107"/><line x1="160" y1="93" x2="160" y2="100"/>
+        <circle cx="100" cy="100" r="26" stroke-width="0.5"/>
+      </g>
+      <circle cx="100" cy="100" r="1.7" fill="rgba(255,179,71,0.95)"/>
+    </svg>
+    <div class="zoom" id="scopeZoom">1.9×</div>
+    <div class="mask"></div>
+  </div>
+  <div id="hitmarker"><div class="k1"></div><div class="k2"></div><div class="k3"></div><div class="k4"></div></div>
+
+  <div id="damage"></div>
+  <div id="lowhp"></div>
+
+  <!-- 敌人方位条：屏幕上方一条，附近敌人显示为红点（越近越亮） -->
+  <div id="compass">
+    <div class="cTrack"></div>
+    <div id="cDots"></div>
+    <div class="cCenter"></div>
+  </div>
+
+  <!-- 解锁鼠标时（训练场按 Alt）的提示条 -->
+  <div id="menuNotice">鼠标已解锁 · 可用左上角菜单 · 再按 <b>Alt</b> 回到游戏</div>
+
+  <!-- 左上：关卡进度 -->
+  <div id="topLeft">
+    <div id="fps">-- 帧率</div>
+    <div class="panel" id="progressPanel">
+      <div class="label">关卡进度</div>
+      <div id="stageRow">
+        <span id="stageValue">第 <span id="waveValue">1</span> 关</span>
+        <span id="stageTotal">共 8 关</span>
+      </div>
+      <div id="stageBarOuter"><div id="stageBar"></div></div>
+      <div id="stageSub">本关剩余敌人 <span id="aliveValue">0</span><span id="stageCleared"></span></div>
+    </div>
+
+    <!-- 训练场菜单（按 Alt 呼出鼠标后使用） -->
+    <div class="panel" id="trainMenu">
+      <div class="tmTitle">训练场</div>
+      <div class="tmSub">
+        当前敌人 <b id="tmAlive">0</b> / 一轮 <b id="tmRound">5</b> · 清空自动刷新<br>
+        无关卡 · 子弹无限 · 敌人不会攻击
+      </div>
+
+      <div class="tmSect">
+        <div class="tmSectTitle">敌人行为</div>
+        <button class="tmBtn" id="tmHold">全部停止</button>
+        <button class="tmBtn" id="tmMove">全部移动</button>
+        <button class="tmBtn warn" id="tmClear">清空所有敌人</button>
+      </div>
+
+      <div class="tmSect">
+        <div class="tmSectTitle">添加敌人（点一下加一个）</div>
+        <div class="tmGrid" id="tmTypes"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 左下：按键提示 + 生命值 -->
+  <div id="bottomLeft">
+    <div id="keyHints">
+      <div class="hintRow"><span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>移动</span></div>
+      <div class="hintRow"><span class="keys"><kbd>鼠标</kbd><kbd>左键</kbd></span><span>射击</span></div>
+      <div class="hintRow"><span class="keys"><kbd>鼠标</kbd><kbd>右键</kbd></span><span>开镜（点击切换）</span></div>
+      <div class="hintRow"><span class="keys"><kbd>R</kbd></span><span>换弹</span></div>
+      <div class="hintRow"><span class="keys"><kbd>F</kbd></span><span>检视枪械</span></div>
+      <div class="hintRow"><span class="keys"><kbd>Shift</kbd></span><span>冲刺</span></div>
+      <div class="hintRow"><span class="keys"><kbd>空格</kbd></span><span>跳跃</span></div>
+      <div class="hintRow" id="altHint"><span class="keys"><kbd>Alt</kbd></span><span>呼出鼠标（开菜单）</span></div>
+      <div class="hintRow" id="pauseHint"><span class="keys"><kbd>Esc</kbd></span><span>暂停菜单</span></div>
+      <div class="hintRow"><span class="keys"><kbd>M</kbd></span><span>静音开关</span></div>
+    </div>
+    <div class="panel" id="healthPanel">
+      <div class="label">生命值</div>
+      <div id="healthRow">
+        <span class="big" id="healthValue">100</span>
+        <span id="healthMax">/ 100</span>
+      </div>
+      <div id="healthBarOuter"><div id="healthBar"></div></div>
+    </div>
+  </div>
+
+  <!-- 右上：得分 -->
+  <div class="panel" id="scorePanel">
+    <div class="label">总得分</div>
+    <div class="big" id="scoreValue">0</div>
+    <div class="statRow"><span class="k">本关得分</span><span class="v" id="waveScoreValue">0</span></div>
+    <div class="statRow"><span class="k">击杀</span><span class="v" id="killsValue">0</span></div>
+    <div class="statRow"><span class="k">爆头</span><span class="v" id="headshotValue">0</span></div>
+  </div>
+
+  <!-- 右下：弹药 -->
+  <div class="panel" id="ammoPanel">
+    <div class="label" id="weaponName">QBZ-191</div>
+    <div id="ammoRow">
+      <span class="big" id="ammoMag">30</span>
+      <span id="ammoSep">/</span>
+      <span class="big" id="ammoReserve">150</span>
+    </div>
+    <div id="reloadHint">按 <kbd>R</kbd> 换弹</div>
+  </div>
+
+  <!-- 连杀提示 -->
+  <div id="streakPanel">
+    <div id="streakText">连杀 x2</div>
+    <div id="streakBonus">奖励 +50</div>
+    <div id="streakBarOuter"><div id="streakBar"></div></div>
+  </div>
+
+  <!-- 中心下方：得分飘字 -->
+  <div id="scorePopups"></div>
+
+  <!-- 回合结算 -->
+  <div id="roundCard">
+    <div id="rcTitle">第 1 关 清空</div>
+    <div id="rcScoreRow">
+      <span class="k">本关得分</span>
+      <span class="v" id="rcScore">0</span>
+    </div>
+    <div id="rcRows">
+      <div class="rcRow"><span>清空奖励</span><span id="rcBonus">+0</span></div>
+      <div class="rcRow"><span>生命恢复</span><span id="rcHeal">+0</span></div>
+      <div class="rcRow"><span>弹药补给</span><span id="rcAmmo">+0</span></div>
+    </div>
+    <div id="rcNextText">下一关准备中</div>
+    <div id="rcBarOuter"><div id="rcBar"></div></div>
+  </div>
+
+  <div id="banner">
+    <div id="bannerTitle">第 1 关</div>
+    <div id="bannerSub">敌军已在外圈展开</div>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="card" id="overlayCard"></div>
+</div>
+
+<script>/* 玩家版：彻底关闭开发者模式（devmode.js 读到它就永不建 UI、F3/?dev=1 无效）。
+   注意不是删 devmode.js —— 竞技场那 798 个物体的摆放逻辑就在那个文件里。 */
+window.__DEV_MODE_DISABLED = true;</script>
+<script>/* 玩家版：彻底关闭开发者模式（devmode.js 读到它就永不建 UI、F3/?dev=1 无效）。
+   注意不是删 devmode.js —— 竞技场那 798 个物体的摆放逻辑就在那个文件里。 */
+window.__DEV_MODE_DISABLED = true;</script>
+<script src="vendor/three.min.js"></script>
+<script src="vendor/GLTFLoader.js"></script>
+<script src="src/bvh.js"></script>
+<script src="src/audio.js"></script>
+<script src="src/shell.js"></script>
+<script src="src/save.js"></script>
+<script src="src/merge-static.js"></script>
+<script src="src/world.js"></script>
+  <script src="src/postfx.js"></script>
+<script src="src/enemy.js"></script>
+<script src="src/player.js"></script>
+<script src="src/layout-default.js"></script>
+  <script src="src/devmode.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>

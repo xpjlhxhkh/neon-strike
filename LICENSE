@@ -1,0 +1,36 @@
+MIT License
+
+Copyright (c) 2026 NEON STRIKE / 霓虹突袭 contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+────────────────────────────────────────────────────────────────────────────
+注意 / NOTE
+────────────────────────────────────────────────────────────────────────────
+上面的 MIT 许可**只覆盖本项目自己的代码与美术**。游戏内使用的第三方模型与运行库
+各有自己的许可，**不适用 MIT**，详见 THIRD-PARTY.md：
+
+  · 8 个地图模型：CC-BY-4.0（必须署名作者）—— 见 THIRD-PARTY.md
+  · 武器模型 qbz191.glb：来源与许可见 THIRD-PARTY.md（发布前请自行确认）
+  · three.js / GLTFLoader：MIT
+  · Tauri：MIT / Apache-2.0
+  · WebView2Loader.dll：Microsoft 许可
+
+The MIT license above covers only this project's own code and art. Third-party
+models and libraries keep their own licenses; see THIRD-PARTY.md.

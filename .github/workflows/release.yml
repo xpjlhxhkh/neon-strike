@@ -1,0 +1,102 @@
+# =====================================================================
+#  发版流水线：打上 v* 标签（或在 Actions 页面手动触发）时，
+#  编译 NEON STRIKE.exe + WebView2Loader.dll，处理完三个关键坑后挂到 Release。
+#
+#  为什么不能直接 `cargo build`（三个坑，都在这个文件里处理了）：
+#   1) 仓库里的 src-tauri/.cargo/config.toml 强制走 USTC 镜像（作者在国内、
+#      官方源只有 38 KB/s）。海外 runner 上可能连不上 → 这里用临时 CARGO_HOME 覆盖掉镜像。
+#   2) src-tauri/rust-toolchain.toml 写死 stable-x86_64-pc-windows-gnu，
+#      runner 上没有这个工具链 → 先装上它和 rust-mingw。
+#   3) GNU 目标下 rust-lld 选的入口点与 rust-mingw 的 CRT 不匹配，进程会在 main
+#      之前被加载器结束（**双击秒退**）。所以按 console 子系统链接，再把 PE 头里的
+#      子系统字段改成 2(GUI) —— 结果既没有控制台窗口，入口点也是对的。
+# =====================================================================
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: 取源码
+        uses: actions/checkout@v4
+
+      - name: 装 Rust（GNU 工具链 + rust-mingw）
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-gnu
+          components: rust-mingw
+
+      - name: 去掉仓库里的 USTC 镜像配置（海外 runner 上直连官方源）
+        shell: pwsh
+        run: |
+          # src-tauri/.cargo/config.toml 是为作者本机（官方源只有 38 KB/s）写的。
+          # 直接删掉，比在 CI 里写 replace-with 覆盖更可靠
+          #（把 crates-io 指向自己会让 Tauri 的 source 校验报 "no sources defined"）。
+          Remove-Item 'src-tauri/.cargo/config.toml' -Force -ErrorAction SilentlyContinue
+          # 用一个干净的 CARGO_HOME，确保没有任何残留配置改写源
+          "CARGO_HOME=$env:RUNNER_TEMP\cargo-home" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      - name: 编译（frontendDist 会把 web/ 嵌进二进制）
+        working-directory: src-tauri
+        run: cargo build --release
+
+      - name: 把 PE 子系统改成 GUI(2)（否则双击秒退）
+        shell: pwsh
+        run: |
+          $exe = 'src-tauri/target/release/neon-strike.exe'
+          $b = [System.IO.File]::ReadAllBytes($exe)
+          $optOff = [BitConverter]::ToInt32($b, 0x3C) + 4 + 20
+          $subOff = $optOff + 68
+          $cur = [BitConverter]::ToUInt16($b, $subOff)
+          if ($cur -ne 2) {
+            [BitConverter]::GetBytes([UInt16]2).CopyTo($b, $subOff)
+            [System.IO.File]::WriteAllBytes($exe, $b)
+            Write-Host "子系统字段 $cur -> 2 (GUI)"
+          } else {
+            Write-Host "子系统已经是 GUI(2)"
+          }
+
+      - name: 收集产物
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item 'src-tauri/target/release/neon-strike.exe' 'dist/NEON STRIKE.exe'
+          Copy-Item 'README.md','LICENSE','THIRD-PARTY.md','SHA256SUMS.txt' dist/
+          # WebView2Loader.dll：GNU 目标是动态依赖，必须跟着 exe
+          $t = Join-Path $env:USERPROFILE '.rustup/toolchains/stable-x86_64-pc-windows-gnu'
+          $dll = Get-ChildItem -Path $t -Recurse -Filter 'WebView2Loader.dll' -ErrorAction SilentlyContinue |
+                 Select-Object -First 1
+          if (-not $dll) {
+            $dll = Get-ChildItem -Path (Join-Path $env:USERPROFILE '.cargo/registry') -Recurse -Filter 'WebView2Loader.dll' -ErrorAction SilentlyContinue |
+                   Where-Object { $_.FullName -match '\\x64\\' } | Select-Object -First 1
+          }
+          if (-not $dll) { throw 'WebView2Loader.dll 没找到 —— 产物会缺运行时依赖' }
+          Copy-Item $dll.FullName dist/
+          Get-ChildItem dist | Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,2)}} | Format-Table -AutoSize
+
+      - name: 上传到 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          body: |
+            下载 `NEON STRIKE.exe` 和 `WebView2Loader.dll`，**放同一个文件夹**，双击 exe 即可。
+
+            想核对文件是否完整：见 `SHA256SUMS.txt`（用 `Get-FileHash 文件名 -Algorithm SHA256` 对比）。
+
+            第三方素材署名见 `THIRD-PARTY.md`。
+          files: |
+            dist/NEON STRIKE.exe
+            dist/WebView2Loader.dll
+            dist/README.md
+            dist/LICENSE
+            dist/THIRD-PARTY.md
+            dist/SHA256SUMS.txt

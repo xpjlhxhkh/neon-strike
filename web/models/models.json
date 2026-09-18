@@ -1,0 +1,12 @@
+{
+  "weapon": {
+    "file": "qbz191.glb",
+    "normalize": 1.05,
+    "rotation": [0, 0, 0],
+    "position": [0, 0, 0],
+    "autoFitHands": true,
+    "aimZoom": 1.35,
+    "aimRelief": 0.46
+  },
+  "hands": null
+}
